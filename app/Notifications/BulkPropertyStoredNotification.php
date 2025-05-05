@@ -7,14 +7,14 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class EmailNotification extends Notification
+class BulkPropertyStoredNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct()
+    public function __construct(public string $batch_id)
     {
         //
     }
@@ -26,7 +26,7 @@ class EmailNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
     }
 
     /**
@@ -35,8 +35,9 @@ class EmailNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->line('The introduction to the notification.')
-            ->action('Notification Action', url('/'))
+            ->greeting('Hello ' . $notifiable->name . '!')
+            ->line('Bulk property update has been completed.')
+            ->action('Check Status', url('/api/v1/batch-info/' . $this->batch_id))
             ->line('Thank you for using our application!');
     }
 
@@ -48,7 +49,8 @@ class EmailNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            //
+            'name' => $notifiable->name,
+            'batch_id' => $this->batch_id,
         ];
     }
 }

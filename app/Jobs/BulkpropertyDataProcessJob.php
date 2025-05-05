@@ -2,11 +2,9 @@
 
 namespace App\Jobs;
 
-use App\Models\User;
-use App\Mail\BulkPropertyStored;
+use Illuminate\Bus\Batchable;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use App\Jobs\BulkPropertyDataInsertJob;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Foundation\Queue\Queueable;
@@ -14,15 +12,14 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 
 class BulkpropertyDataProcessJob implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, Batchable;
 
-    private User $user;
     /**
      * Create a new job instance.
      */
-    public function __construct(User $user)
+    public function __construct()
     {
-        $this->user = $user;
+        //
     }
 
     /**
@@ -30,6 +27,10 @@ class BulkpropertyDataProcessJob implements ShouldQueue
      */
     public function handle(): void
     {
+        if ($this->batch()->cancelled()) {
+            return;
+        }
+
         Log::info(__FILE__ . __FUNCTION__ . '::' . 'Starting BulkpropertyDataProcessJob');
 
         $files = collect(Storage::disk('local')->files('property'));
@@ -87,18 +88,8 @@ class BulkpropertyDataProcessJob implements ShouldQueue
 
         // 🔥 Now create and dispatch the batch
         if (!empty($jobs)) {
-            $batch_id = Bus::batch($jobs)->dispatch()->id;
+            // Add more jobs to the current batch
+            $this->batch()->add($jobs);
         }
-
-        // Send raw mail without template
-        // $subject = 'Simple Test Email';
-        // $body = 'This is a simple email sent directly without a Mailable class.';
-        // Mail::raw($body, fn($message) => $message->to($this->user)->subject($subject));
-
-        // Send instantly
-        // Mail::to($this->user->email)->send(new BulkPropertyStored($this->user, $batch_id));
-
-        // Send mail using queue
-        Mail::to($this->user->email)->queue(new BulkPropertyStored($this->user, $batch_id));
     }
 }

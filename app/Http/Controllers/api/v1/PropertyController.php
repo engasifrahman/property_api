@@ -3,14 +3,18 @@
 namespace App\Http\Controllers\api\v1;
 
 use App\Models\Property;
+use Illuminate\Bus\Batch;
 use Illuminate\Http\Request;
+use App\Mail\BulkPropertyStored;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Mail;
 use App\Jobs\BulkpropertyDataProcessJob;
 use App\Http\Requests\StorePropertyRequest;
 use App\Http\Requests\UpdatePropertyRequest;
+use App\Notifications\BulkPropertyStoredNotification;
 
 class PropertyController extends Controller
 {
@@ -54,7 +58,6 @@ class PropertyController extends Controller
 
     public function bulkUpload(Request $request)
     {
-
         // Validate file input
         $request->validate([
             'file' => 'required|file|mimetypes:text/csv,application/gzip', // Adjust as needed
@@ -71,10 +74,42 @@ class PropertyController extends Controller
         $filename = "uploaded_to_store_{$timestamp}.{$ext}";
         $path = $file->storeAs('property', $filename);
 
-        // (new BulkpropertyDataProcessJob(auth()->user()))->handle();
-        // dispatch(new BulkpropertyDataProcessJob(auth()->user()));
-        BulkpropertyDataProcessJob::dispatch(auth()->user());
-        // BulkpropertyDataProcessJob::dispatch(auth()->user())->delay(now()->addMinutes(10));
+        // (new BulkpropertyDataProcessJob())->handle();
+        // dispatch(new BulkpropertyDataProcessJob());
+        // BulkpropertyDataProcessJob::dispatch();
+        // BulkpropertyDataProcessJob::dispatch()->delay(now()->addMinutes(10));
+
+        $user = auth()->user();
+        $batch_id = Bus::batch([
+            new BulkpropertyDataProcessJob()
+        ])
+        ->before(function (Batch $batch) use($user) {
+            // The batch has been created but no jobs have been added...
+            // Send raw mail without template
+            // $subject = 'Simple Test Email';
+            // $body = 'This is a simple email sent directly without a Mailable class.';
+            // Mail::raw($body, fn($message) => $message->to($user)->subject($subject));
+
+            // Send instantly
+            // Mail::to($user->email)->send(new BulkPropertyStored($user, $batch_id));
+
+            // Send mail using queue
+            // Mail::to($user->email)->queue(new BulkPropertyStored($user, $batch_id));
+
+            // Send mail using queue including delay
+            Mail::to($user->email)->later(now()->addSeconds(2), new BulkPropertyStored($user, $batch->id));
+        })->progress(function (Batch $batch) {
+            // A single job has completed successfully...
+            Log::info(__FILE__ . __FUNCTION__ . '::' . 'bulkUpload has been proccessed ' . $batch->processedJobs() . 'jobs');
+        })->then(function (Batch $batch) use($user) {
+            // All jobs completed successfully...
+            Log::info(__FILE__ . __FUNCTION__ . '::' . 'bulkUpload has been completed, batch-id:' . $batch->id);
+            $user->notify((new BulkPropertyStoredNotification($batch->id))->delay(now()->addSeconds(5)));
+        })->catch(function (Batch $batch, Throwable $e) {
+            // First batch job failure detected...
+        })->finally(function (Batch $batch) {
+            // The batch has finished executing...
+        })->dispatch()->id;
 
 
         Log::info(__FILE__ . __FUNCTION__ . '::' . $path);

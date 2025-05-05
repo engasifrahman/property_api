@@ -55,9 +55,9 @@ class BulkPropertyStored extends Mailable implements ShouldQueue
         }
 
         $this->total_batch_jobs = $batch->totalJobs;
-        $this->batch_status = $batch->cancelled() ? 'Cancelled' :
-               ($batch->failedJobs > 0 ? 'Completed with failures' :
-               ($batch->finished() ? 'Completed successfully' : 'Processing'));
+        $this->batch_status = $batch->cancelled() ? 'cancelled' :
+               ($batch->failedJobs > 0 ? 'completed with failures' :
+               ($batch->finished() ? 'completed successfully' : 'processing'));
     }
 
     /**
