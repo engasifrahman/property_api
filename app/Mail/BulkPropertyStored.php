@@ -7,6 +7,7 @@ use Illuminate\Bus\Batch;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Mail\Mailables\Envelope;
@@ -17,18 +18,18 @@ class BulkPropertyStored extends Mailable implements ShouldQueue
     use Queueable, SerializesModels;
 
     public User $user;
-    public string $batch_id;
+    public ?string $batch_id;
     public string $batch_status;
     public int $total_batch_jobs;
 
     /**
      * Create a new message instance.
      *
-     * @param  string|null $user
-     * @param  mixed $batch_id
+     * @param  User $user
+     * @param  ?string $batch_id
      * @return void
      */
-    public function __construct(User $user, string|null $batch_id)
+    public function __construct(User $user, ?string $batch_id)
     {
         $this->user = $user;
         $this->batch_id = $batch_id;
@@ -66,6 +67,14 @@ class BulkPropertyStored extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
+            // from: new Address('jeffrey@example.com', 'Jeffrey Way'),
+            // replyTo: [
+            //     new Address('taylor@example.com', 'Taylor Otwell'),
+            // ],
+            // tags: ['shipment'],
+            // metadata: [
+            //     'order_id' => $this->order->id,
+            // ],
             subject: 'Bulk Property Stored',
         );
     }
